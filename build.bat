@@ -2,7 +2,7 @@
 
 setlocal
 
-if not exist env.bat copy env.bat.template env.bat
+copy /y env.bat.template env.bat
 
 if exist env.bat call env.bat
 
@@ -81,7 +81,7 @@ set build_rime=0
 set rime_build_variant=release
 set build_weasel=0
 set build_installer=0
-set build_arm64=0
+set build_arm64=1
 
 rem parse the command line options
 :parse_cmdline_options
@@ -132,6 +132,13 @@ if exist output\weaselserver.exe (
   output\weaselserver.exe /q
 )
 
+if exist ascii-keep.patch (
+  echo Apply: ascii-keep.patch
+  cd librime
+  git apply ../ascii-keep.patch
+  cd ..
+)
+
 rem build booost
 if %build_boost% == 1 (
   call :build_boost
@@ -157,6 +164,12 @@ if %build_rime% == 1 (
       if exist %%a rd /s /q %%a
   )
 
+  if %build_arm64% == 1 (
+    set ARCH=arm64
+    call :build_librime_platform arm64 %WEASEL_ROOT%\lib64 %WEASEL_ROOT%\output
+    goto built_rime
+  )
+
   rem build x64 librime
   set ARCH=x64
   call :build_librime_platform x64 %WEASEL_ROOT%\lib64 %WEASEL_ROOT%\output
@@ -167,6 +180,7 @@ if %build_rime% == 1 (
   rem git checkout .
   rem git submodule foreach git checkout .
 )
+:built_rime
 
 rem -------------------------------------------------------------------------
 if %build_weasel% == 1 (
@@ -197,9 +211,6 @@ cscript.exe render.js weasel.props %WEASEL_PROJECT_PROPERTIES%
 del msbuild*.log
 
 if %build_arm64% == 1 (
-
-  msbuild.exe weasel.sln %build_option% /p:Configuration=%build_config% /p:Platform="ARM" /fl6
-  if errorlevel 1 goto error
   msbuild.exe weasel.sln %build_option% /p:Configuration=%build_config% /p:Platform="ARM64" /fl5
   if errorlevel 1 goto error
 )
@@ -235,6 +246,9 @@ goto end
 rem -------------------------------------------------------------------------
 rem build boost
 :build_boost
+  rem https://blog.csdn.net/txd1cwdq/article/details/140176614
+  copy /y msvc.jam %BOOST_ROOT%\tools\build\src\tools\msvc.jam
+
   set BJAM_OPTIONS_COMMON=-j%NUMBER_OF_PROCESSORS%^
     --with-filesystem^
     --with-json^
@@ -257,11 +271,6 @@ rem build boost
     architecture=x86^
     address-model=64
   
-  set BJAM_OPTIONS_ARM32=%BJAM_OPTIONS_COMMON%^
-    define=BOOST_USE_WINAPI_VERSION=0x0A00^
-    architecture=arm^
-    address-model=32
-  
   set BJAM_OPTIONS_ARM64=%BJAM_OPTIONS_COMMON%^
     define=BOOST_USE_WINAPI_VERSION=0x0A00^
     architecture=arm^
@@ -276,8 +285,6 @@ rem build boost
   if errorlevel 1 goto error
   
   if %build_arm64% == 1 (
-    b2 %BJAM_OPTIONS_ARM32% stage %BOOST_COMPILED_LIBS%
-    if errorlevel 1 goto error
     b2 %BJAM_OPTIONS_ARM64% stage %BOOST_COMPILED_LIBS%
     if errorlevel 1 goto error
   )
@@ -339,9 +346,14 @@ rem %3 : target_path of rime.dll, base %WEASEL_ROOT% or abs path
   call :stash_build %1 pop
 
   cd %WEASEL_ROOT%\librime
-  if not exist env.bat (
-    copy %WEASEL_ROOT%\env.bat env.bat
+  copy /y %WEASEL_ROOT%\env.bat.librime.template env.bat
+
+  cmd /c "call env.bat & action-install-plugins-windows.bat"
+  if errorlevel 1 (
+    call :stash_build %1 push
+    goto error
   )
+
   if not exist lib\opencc.lib (
     call build.bat deps %rime_build_variant%
     if errorlevel 1 (

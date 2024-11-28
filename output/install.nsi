@@ -214,7 +214,6 @@ program_files:
     File "weaselx64.dll"
   ${EndIf}
   ${If} ${IsNativeARM64}
-    File /nonfatal "weaselARM.dll"
     File /nonfatal "weaselARM64.dll"
     File /nonfatal "weaselARM64X.dll"
   ${EndIf}
@@ -223,7 +222,6 @@ program_files:
     File "weaselx64.ime"
   ${EndIf}
   ${If} ${IsNativeARM64}
-    File /nonfatal "weaselARM.ime"
     File /nonfatal "weaselARM64.ime"
     File /nonfatal "weaselARM64X.ime"
   ${EndIf}
@@ -233,17 +231,10 @@ program_files:
       File "WeaselDeployer.exe"
       File "WeaselServer.exe"
       File "rime.dll"
-      File "WinSparkle.dll"
     ${ElseIf} ${IsNativeAMD64}
       File "WeaselDeployer.exe"
       File "WeaselServer.exe"
       File "rime.dll"
-      File "WinSparkle.dll"
-    ${Else}
-      File "Win32\WeaselDeployer.exe"
-      File "Win32\WeaselServer.exe"
-      File "Win32\rime.dll"
-      File "Win32\WinSparkle.dll"
     ${Endif}
   ; install x64 build for NativeAMD64_BELLOW_WINDOWS11
   ${Else} ; Windows 10 or bellow
@@ -251,12 +242,6 @@ program_files:
       File "WeaselDeployer.exe"
       File "WeaselServer.exe"
       File "rime.dll"
-      File "WinSparkle.dll"
-    ${Else}
-      File "Win32\WeaselDeployer.exe"
-      File "Win32\WeaselServer.exe"
-      File "Win32\rime.dll"
-      File "Win32\WinSparkle.dll"
     ${Endif}
   ${Endif}
 
@@ -320,16 +305,6 @@ program_files:
   WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Run" "WeaselServer" "$INSTDIR\WeaselServer.exe"
   ; Start WeaselServer
   Exec "$INSTDIR\WeaselServer.exe"
-
-  ; option CheckForUpdates
-  IfSilent DisableAutoCheckUpdate
-  MessageBox MB_YESNO|MB_ICONINFORMATION "$(AUTOCHKUPDATE)" IDYES EnableAutoCheckUpdate
-  DisableAutoCheckUpdate:
-  WriteRegStr HKCU "Software\Rime\Weasel\Updates" "CheckForUpdates" "0"
-  GoTo end
-  EnableAutoCheckUpdate:
-  WriteRegStr HKCU "Software\Rime\Weasel\Updates" "CheckForUpdates" "1"
-  end:
 
   ; Prompt reboot
   StrCmp $0 "Upgrade" 0 +2
