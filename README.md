@@ -18,6 +18,55 @@
   * ibus-rime、fcitx5-rime 或 fcitx-rime 用於 Linux
   * 【鼠鬚管】用於 macOS （64位）
 
+Build on ARM64
+--------------
+
+* Boost 1.84.0, set `BOOST_ROOT` in `env.bat`
+* MSVC 143 (actually 144.x), open `Developer PowerShell for VS 2022`
+* `./build.sh all`
+
+Or with multiple stages:
+
+```pwsh
+.\build.bat boost
+.\build.bat data
+.\build.bat opencc
+.\build.bat librime
+.\build.bat weasel
+.\build.bat installer
+```
+
+The backend (WeaselServer & librime) is arm64 ready, but the frontend (DLLs) must have x86, x64 and arm64.
+
+ARM32 is dropped, as Windows 11 did.
+
+This fork can only be built with ARM64 machine, it's unmaintainable.
+
+<https://github.com/rime/weasel/issues/803>
+
+Arch
+----
+
+The weasel contains multiple subprojects shown in `weasel.sln`,
+
+* WeaselTSF
+* WeaselUI
+* WeaselIPC
+* WeaselIME
+* WeaselServer
+* WeaselIPCServer
+* RimeWithWeasel
+* WeaselDeployer
+* WeaselSetup
+
+The IME is a typical client/server architecture, the "WeaselTSF, WeaselUI, WeaselIPC, WeaselIME" components are the client, the "WeaselServer, WeaselIPCServer, RimeWithWeasel" are the server, the rest are just utilities.
+
+For the client side, it should follow the Windows IME, and for ARM64, all of the "x86, x64, ARM64" should be built, the Windows will choose what library should be used when you're opening an application. It's using a IPC method to communicate with the server.
+
+The server side, of course, need no to be x64, and can definitely run in native ARM64, that's why this repo forked.
+
+For integrating with current Weasel build script, we might change the `lib64` of ARM64 to `libarm64` or else, it should be done in both build script and sln projects.
+
 安裝輸入法
 ----------
 

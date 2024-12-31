@@ -17,6 +17,7 @@ ReleaseHant/
 /output/data/*.yaml
 /output/archives
 /lib/*.lib
+/lib64/*.lib
 /include/glog
 /include/rime*.h
 /ipch
