@@ -119,12 +119,10 @@ class WeaselPanel
   CIcon m_iconDisabled;
   CIcon m_iconEnabled;
   CIcon m_iconAlpha;
-  CIcon m_iconFull;
   CIcon m_iconHalf;
   std::wstring m_current_zhung_icon;
   std::wstring m_current_ascii_icon;
   std::wstring m_current_half_icon;
-  std::wstring m_current_full_icon;
   // for gdiplus drawings
   Gdiplus::GdiplusStartupInput _m_gdiplusStartupInput;
   ULONG_PTR _m_gdiplusToken;

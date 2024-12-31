@@ -149,40 +149,34 @@ enum IconType { SCHEMA, FULL_SHAPE };
 // 由ime管理
 struct Status {
   Status()
-      : type(SCHEMA),
+      : temp_ascii(false),
         ascii_mode(false),
         composing(false),
-        disabled(false),
-        full_shape(false) {}
+        disabled(false) {}
   void reset() {
     schema_name.clear();
     schema_id.clear();
+    temp_ascii = false;
     ascii_mode = false;
     composing = false;
     disabled = false;
-    full_shape = false;
-    type = SCHEMA;
   }
   bool operator==(const Status status) {
-    return (status.schema_name == schema_name &&
-            status.schema_id == schema_id && status.ascii_mode == ascii_mode &&
-            status.composing == composing && status.disabled == disabled &&
-            status.full_shape == full_shape && status.type == type);
+    return (status.schema_name == schema_name && status.schema_id == schema_id &&
+            status.temp_ascii == status.temp_ascii && status.ascii_mode == ascii_mode &&
+            status.composing == composing && status.disabled == disabled);
   }
   // 輸入方案
   std::wstring schema_name;
   // 輸入方案 id
   std::wstring schema_id;
   // 轉換開關
+  bool temp_ascii;
   bool ascii_mode;
   // 寫作狀態
   bool composing;
   // 維護模式（暫停輸入功能）
   bool disabled;
-  // 全角状态
-  bool full_shape;
-  // 图标类型, schema/full_shape
-  IconType type;
 };
 
 // 用於向前端告知設置信息
@@ -236,7 +230,6 @@ struct UIStyle {
   std::wstring current_zhung_icon;
   std::wstring current_ascii_icon;
   std::wstring current_half_icon;
-  std::wstring current_full_icon;
   // label format and mark_text
   std::wstring label_text_format;
   std::wstring mark_text;
@@ -312,7 +305,6 @@ struct UIStyle {
         current_zhung_icon(),
         current_ascii_icon(),
         current_half_icon(),
-        current_full_icon(),
         label_text_format(L"%s."),
         mark_text(),
         layout_type(LAYOUT_VERTICAL),
@@ -381,7 +373,6 @@ struct UIStyle {
         current_zhung_icon != st.current_zhung_icon ||
         current_ascii_icon != st.current_ascii_icon ||
         current_half_icon != st.current_half_icon ||
-        current_full_icon != st.current_full_icon ||
         enhanced_position != st.enhanced_position ||
         click_to_capture != st.click_to_capture ||
         label_text_format != st.label_text_format ||
@@ -446,7 +437,6 @@ void serialize(Archive& ar, weasel::UIStyle& s, const unsigned int version) {
   ar & s.current_zhung_icon;
   ar & s.current_ascii_icon;
   ar & s.current_half_icon;
-  ar & s.current_full_icon;
   ar & s.enhanced_position;
   ar & s.click_to_capture;
   ar & s.label_text_format;

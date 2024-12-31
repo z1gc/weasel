@@ -105,6 +105,11 @@ void StatusUpdater::Store(Deserializer::KeyType const& k,
     return;
   }
 
+  if (k[1] == L"temp_ascii") {
+    m_pTarget->p_status->temp_ascii = bool_value;
+    return;
+  }
+
   if (k[1] == L"ascii_mode") {
     m_pTarget->p_status->ascii_mode = bool_value;
     return;
@@ -117,11 +122,6 @@ void StatusUpdater::Store(Deserializer::KeyType const& k,
 
   if (k[1] == L"disabled") {
     m_pTarget->p_status->disabled = bool_value;
-    return;
-  }
-
-  if (k[1] == L"full_shape") {
-    m_pTarget->p_status->full_shape = bool_value;
     return;
   }
 }

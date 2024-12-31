@@ -393,7 +393,7 @@ bool StandardLayout::ShouldDisplayStatusIcon() const {
   // rule 2. show status icon when switching mode
   // rule 3. always show status icon with tips
   // rule 4. rule 3 excluding tips FullScreenLayout with strings
-  return ((_status.ascii_mode && !_style.inline_preedit) ||
+  return (((_status.ascii_mode || _status.temp_ascii) && !_style.inline_preedit) ||
           !_status.composing || !_context.aux.empty()) &&
          !((_style.layout_type == UIStyle::LAYOUT_HORIZONTAL_FULLSCREEN ||
             _style.layout_type == UIStyle::LAYOUT_VERTICAL_FULLSCREEN) &&

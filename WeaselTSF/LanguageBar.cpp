@@ -214,15 +214,15 @@ STDAPI CLangBarItemButton::GetIcon(HICON* phIcon) {
                             GetSystemMetrics(SM_CYSMICON), LR_LOADFROMFILE);
   } else {
     if (_style.current_zhung_icon.empty())
-      *phIcon = (HICON)LoadImageW(g_hInst, MAKEINTRESOURCEW(IDI_ZH), IMAGE_ICON,
-                                  GetSystemMetrics(SM_CXSMICON),
-                                  GetSystemMetrics(SM_CYSMICON), LR_SHARED);
-    else
-      *phIcon =
-          (HICON)LoadImageW(NULL, _style.current_zhung_icon.c_str(), IMAGE_ICON,
-                            GetSystemMetrics(SM_CXSMICON),
-                            GetSystemMetrics(SM_CYSMICON), LR_LOADFROMFILE);
-  }
+    *phIcon = (HICON)LoadImageW(g_hInst, MAKEINTRESOURCEW(IDI_ZH), IMAGE_ICON,
+                                GetSystemMetrics(SM_CXSMICON),
+                                GetSystemMetrics(SM_CYSMICON), LR_SHARED);
+  else
+    *phIcon =
+(HICON)LoadImageW(NULL, _style.current_zhung_icon.c_str(), IMAGE_ICON,
+                                GetSystemMetrics(SM_CXSMICON),
+                                GetSystemMetrics(SM_CYSMICON), LR_LOADFROMFILE);
+}
   return (*phIcon == NULL) ? E_FAIL : S_OK;
 }
 
@@ -255,7 +255,7 @@ STDAPI CLangBarItemButton::UnadviseSink(DWORD dwCookie) {
   return S_OK;
 }
 
-void CLangBarItemButton::UpdateWeaselStatus(weasel::Status stat) {
+void CLangBarItemButton::UpdateWeaselStatus(const weasel::Status& stat) {
   if (stat.ascii_mode != ascii_mode) {
     ascii_mode = stat.ascii_mode;
   }
@@ -402,7 +402,7 @@ void WeaselTSF::_UninitLanguageBar() {
   _pLangBarButton = NULL;
 }
 
-void WeaselTSF::_UpdateLanguageBar(weasel::Status stat) {
+void WeaselTSF::_UpdateLanguageBar(const weasel::Status& stat) {
   if (!_pLangBarButton)
     return;
   DWORD flags;
@@ -411,10 +411,7 @@ void WeaselTSF::_UpdateLanguageBar(weasel::Status stat) {
     flags &= (~TF_CONVERSIONMODE_NATIVE);
   else
     flags |= TF_CONVERSIONMODE_NATIVE;
-  if (stat.full_shape)
-    flags |= TF_CONVERSIONMODE_FULLSHAPE;
-  else
-    flags &= (~TF_CONVERSIONMODE_FULLSHAPE);
+  flags &= (~TF_CONVERSIONMODE_FULLSHAPE);
   _SetCompartmentDWORD(flags, GUID_COMPARTMENT_KEYBOARD_INPUTMODE_CONVERSION);
 
   _pLangBarButton->UpdateWeaselStatus(stat);

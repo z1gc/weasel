@@ -71,8 +71,6 @@ WeaselPanel::WeaselPanel(weasel::UI& ui)
                           LR_DEFAULTCOLOR);
   m_iconAlpha.LoadIconW(IDI_EN, STATUS_ICON_SIZE, STATUS_ICON_SIZE,
                         LR_DEFAULTCOLOR);
-  m_iconFull.LoadIconW(IDI_FULL_SHAPE, STATUS_ICON_SIZE, STATUS_ICON_SIZE,
-                       LR_DEFAULTCOLOR);
   m_iconHalf.LoadIconW(IDI_HALF_SHAPE, STATUS_ICON_SIZE, STATUS_ICON_SIZE,
                        LR_DEFAULTCOLOR);
   // for gdi+ drawings, initialization
@@ -131,7 +129,7 @@ void WeaselPanel::_CreateLayout() {
 // 更新界面
 void WeaselPanel::Refresh() {
   bool should_show_icon =
-      (m_status.ascii_mode || !m_status.composing || !m_ctx.aux.empty());
+      (m_status.temp_ascii || m_status.ascii_mode || !m_status.composing || !m_ctx.aux.empty());
   m_candidateCount = (BYTE)m_ctx.cinfo.candies.size();
   // check if to hide candidates window
   // show tips status, two kind of situation: 1) only aux strings, don't care
@@ -1029,15 +1027,6 @@ void WeaselPanel::DoPaint(CDCHandle dc) {
 
     // status icon (I guess Metro IME stole my idea :)
     if (m_layout->ShouldDisplayStatusIcon()) {
-      // decide if custom schema zhung icon to show
-      LoadIconNecessary(m_current_zhung_icon, m_style.current_zhung_icon,
-                        m_iconEnabled, IDI_ZH);
-      LoadIconNecessary(m_current_ascii_icon, m_style.current_ascii_icon,
-                        m_iconAlpha, IDI_EN);
-      LoadIconNecessary(m_current_half_icon, m_style.current_half_icon,
-                        m_iconHalf, IDI_HALF_SHAPE);
-      LoadIconNecessary(m_current_full_icon, m_style.current_full_icon,
-                        m_iconFull, IDI_FULL_SHAPE);
       CRect iconRect(m_layout->GetStatusIconRect());
       if (m_istorepos && !m_ctx.aux.str.empty())
         iconRect.OffsetRect(0, m_offsety_aux);
@@ -1045,14 +1034,22 @@ void WeaselPanel::DoPaint(CDCHandle dc) {
                !m_ctx.preedit.str.empty())
         iconRect.OffsetRect(0, m_offsety_preedit);
 
-      CIcon& icon(
-          m_status.disabled ? m_iconDisabled
-          : m_status.ascii_mode
-              ? m_iconAlpha
-              : (m_status.type == SCHEMA
-                     ? m_iconEnabled
-                     : (m_status.full_shape ? m_iconFull : m_iconHalf)));
-      memDC.DrawIconEx(iconRect.left, iconRect.top, icon, 0, 0);
+      if (m_status.disabled)
+        memDC.DrawIconEx(iconRect.left, iconRect.top, m_iconDisabled, 0, 0);
+      else if (m_status.temp_ascii) {
+        // Stolen the half_icon:
+        LoadIconNecessary(m_current_half_icon, m_style.current_half_icon,
+                          m_iconHalf, IDI_HALF_SHAPE);
+        memDC.DrawIconEx(iconRect.left, iconRect.top, m_iconHalf, 0, 0);
+      } else if (m_status.ascii_mode) {
+        LoadIconNecessary(m_current_ascii_icon, m_style.current_ascii_icon,
+                          m_iconAlpha, IDI_EN);
+        memDC.DrawIconEx(iconRect.left, iconRect.top, m_iconAlpha, 0, 0);
+      } else {
+        LoadIconNecessary(m_current_zhung_icon, m_style.current_zhung_icon,
+                  m_iconEnabled, IDI_ZH);
+        memDC.DrawIconEx(iconRect.left, iconRect.top, m_iconEnabled, 0, 0);
+      }
       drawn = true;
     }
     /* Nothing drawn, hide candidate window */

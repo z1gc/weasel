@@ -5,6 +5,7 @@
 #include <WeaselConstants.h>
 #include <WeaselUtility.h>
 #include <boost/algorithm/string.hpp>
+#include <boost/format.hpp>
 #include <vector>
 
 #include <filesystem>
@@ -325,19 +326,7 @@ BOOL RimeWithWeaselHandler::ProcessKeyEvent(KeyEvent keyEvent,
   RimeSessionId session_id = to_session_id(ipc_id);
   Bool handled = rime_api->process_key(session_id, keyEvent.keycode,
                                        expand_ibus_modifier(keyEvent.mask));
-  if (!handled) {
-    bool isVimBackInCommandMode =
-        (keyEvent.keycode == ibus::Keycode::Escape) ||
-        ((keyEvent.mask & (1 << 2)) &&
-         (keyEvent.keycode == ibus::Keycode::XK_c ||
-          keyEvent.keycode == ibus::Keycode::XK_C ||
-          keyEvent.keycode == ibus::Keycode::XK_bracketleft));
-    if (isVimBackInCommandMode &&
-        rime_api->get_option(session_id, "vim_mode") &&
-        !rime_api->get_option(session_id, "ascii_mode")) {
-      rime_api->set_option(session_id, "ascii_mode", True);
-    }
-  }
+
   _Respond(ipc_id, eat);
   _UpdateUI(ipc_id);
   m_active_session = ipc_id;
@@ -701,8 +690,6 @@ void RimeWithWeaselHandler::_LoadSchemaSpecificSettings(
         config, "schema/icon", "schema/zhung_icon", user_dir, shared_dir);
     session_status.style.current_ascii_icon = _LoadIconSettingFromSchema(
         config, "schema/ascii_icon", NULL, user_dir, shared_dir);
-    session_status.style.current_full_icon = _LoadIconSettingFromSchema(
-        config, "schema/full_icon", NULL, user_dir, shared_dir);
     session_status.style.current_half_icon = _LoadIconSettingFromSchema(
         config, "schema/half_icon", NULL, user_dir, shared_dir);
   }
@@ -760,6 +747,14 @@ void RimeWithWeaselHandler::_LoadAppInlinePreeditSet(WeaselSessionId ipc_id,
     _UpdateInlinePreeditStatus(ipc_id);
 }
 
+// https://stackoverflow.com/a/2072890
+static inline bool ends_with(const std::string& value,
+                             const std::string& ending) {
+  if (ending.size() > value.size())
+    return false;
+  return std::equal(ending.rbegin(), ending.rend(), value.rbegin());
+}
+
 bool RimeWithWeaselHandler::_ShowMessage(Context& ctx, Status& status) {
   // show as auxiliary string
   std::wstring& tips(ctx.aux.str);
@@ -790,16 +785,12 @@ bool RimeWithWeaselHandler::_ShowMessage(Context& ctx, Status& status) {
   } else if (m_message_type == "schema") {
     tips = /*L"【" + */ status.schema_name /* + L"】"*/;
   } else if (m_message_type == "option") {
-    status.type = SCHEMA;
-    if (m_message_value == "!ascii_mode") {
+    if (ends_with(m_message_value, "ascii_mode")) {
       show_icon = true;
-    } else if (m_message_value == "ascii_mode") {
+    } else if (ends_with(m_message_value, "temp_ascii")) {
       show_icon = true;
     } else
       tips = string_to_wstring(m_message_label, CP_UTF8);
-
-    if (m_message_value == "full_shape" || m_message_value == "!full_shape")
-      status.type = FULL_SHAPE;
   }
   if (tips.empty() && !show_icon)
     return m_ui->IsCountingDown();
@@ -825,8 +816,9 @@ inline std::string _GetLabelText(const std::vector<Text>& labels,
 }
 
 bool RimeWithWeaselHandler::_Respond(WeaselSessionId ipc_id, EatLine eat) {
+  // TODO: Better serialize?
   std::set<std::string> actions;
-  std::list<std::string> messages;
+  std::vector<std::string> messages;
 
   SessionStatus& session_status = get_session_status(ipc_id);
   RimeSessionId session_id = session_status.session_id;
@@ -834,8 +826,8 @@ bool RimeWithWeaselHandler::_Respond(WeaselSessionId ipc_id, EatLine eat) {
   if (rime_api->get_commit(session_id, &commit)) {
     actions.insert("commit");
 
-    std::string commit_text = escape_string<char>(commit.text);
-    messages.push_back(std::string("commit=") + commit_text + '\n');
+    // Try if boost performs better:
+    messages.emplace_back(str(boost::format("commit=%1%\n") % escape_string<char>(commit.text)));
     rime_api->free_commit(&commit);
   }
 
@@ -844,16 +836,11 @@ bool RimeWithWeaselHandler::_Respond(WeaselSessionId ipc_id, EatLine eat) {
   if (rime_api->get_status(session_id, &status)) {
     is_composing = !!status.is_composing;
     actions.insert("status");
-    messages.push_back(std::string("status.ascii_mode=") +
-                       std::to_string(status.is_ascii_mode) + '\n');
-    messages.push_back(std::string("status.composing=") +
-                       std::to_string(status.is_composing) + '\n');
-    messages.push_back(std::string("status.disabled=") +
-                       std::to_string(status.is_disabled) + '\n');
-    messages.push_back(std::string("status.full_shape=") +
-                       std::to_string(status.is_full_shape) + '\n');
-    messages.push_back(std::string("status.schema_id=") +
-                       std::string(status.schema_id) + '\n');
+    messages.emplace_back(str(boost::format("status.temp_ascii=%1%\n") % status.is_temp_ascii));
+    messages.emplace_back(str(boost::format("status.ascii_mode=%1%\n") % status.is_ascii_mode));
+    messages.emplace_back(str(boost::format("status.composing=%1%\n") % status.is_composing));
+    messages.emplace_back(str(boost::format("status.disabled=%1%\n") % status.is_disabled));
+    messages.emplace_back(str(boost::format("status.schema_id=%1%\n") % status.schema_id));
     if (m_global_ascii_mode &&
         (session_status.status.is_ascii_mode != status.is_ascii_mode)) {
       for (auto& pair : m_session_status_map) {
@@ -873,38 +860,26 @@ bool RimeWithWeaselHandler::_Respond(WeaselSessionId ipc_id, EatLine eat) {
       switch (session_status.style.preedit_type) {
         case UIStyle::PREVIEW:
           if (ctx.commit_text_preview != NULL) {
-            std::string first = ctx.commit_text_preview;
-            messages.push_back(std::string("ctx.preedit=") +
-                               escape_string<char>(first) + '\n');
-            messages.push_back(
-                std::string("ctx.preedit.cursor=") +
-                std::to_string(utf8towcslen(first.c_str(), 0)) + ',' +
-                std::to_string(utf8towcslen(first.c_str(), (int)first.size())) +
-                ',' +
-                std::to_string(utf8towcslen(first.c_str(), (int)first.size())) +
-                '\n');
+            const std::string& first = ctx.commit_text_preview;
+            int wcslen = utf8towcslen(first.c_str(), (int)first.size());
+            messages.emplace_back(str(boost::format("ctx.preedit=%1%\n") % escape_string<char>(first)));
+            messages.emplace_back(str(boost::format("ctx.preedit.cursor=%1%,%2%,%3%\n") %
+                                      utf8towcslen(first.c_str(), 0) % wcslen % wcslen));
             break;
           }
           // no preview, fall back to composition
         case UIStyle::COMPOSITION:
-          messages.push_back(std::string("ctx.preedit=") +
-                             escape_string<char>(ctx.composition.preedit) +
-                             '\n');
+          messages.emplace_back(str(boost::format("ctx.preedit=%1%\n") %
+                                    escape_string<char>(ctx.composition.preedit)));
           if (ctx.composition.sel_start <= ctx.composition.sel_end) {
-            messages.push_back(
-                std::string("ctx.preedit.cursor=") +
-                std::to_string(utf8towcslen(ctx.composition.preedit,
-                                            ctx.composition.sel_start)) +
-                ',' +
-                std::to_string(utf8towcslen(ctx.composition.preedit,
-                                            ctx.composition.sel_end)) +
-                ',' +
-                std::to_string(utf8towcslen(ctx.composition.preedit,
-                                            ctx.composition.cursor_pos)) +
-                '\n');
+            messages.emplace_back(str(boost::format("ctx.preedit.cursor=%1%,%2%,%3%\n") %
+                                      utf8towcslen(ctx.composition.preedit, ctx.composition.sel_start) %
+                                      utf8towcslen(ctx.composition.preedit, ctx.composition.sel_end) %
+                                      utf8towcslen(ctx.composition.preedit, ctx.composition.cursor_pos)));
           }
           break;
         case UIStyle::PREVIEW_ALL:
+          // TODO: Format:
           CandidateInfo cinfo;
           _GetCandidateInfo(cinfo, ctx);
           std::string topush = std::string("ctx.preedit=") +
@@ -949,6 +924,7 @@ bool RimeWithWeaselHandler::_Respond(WeaselSessionId ipc_id, EatLine eat) {
           break;
       }
     }
+
     if (ctx.menu.num_candidates) {
       CandidateInfo cinfo;
       std::wstringstream ss;
@@ -982,7 +958,6 @@ bool RimeWithWeaselHandler::_Respond(WeaselSessionId ipc_id, EatLine eat) {
   }
 
   // summarize
-
   if (actions.empty()) {
     messages.insert(messages.begin(), std::string("action=noop\n"));
   } else {
@@ -1526,10 +1501,10 @@ void RimeWithWeaselHandler::_GetStatus(Status& stat,
       schema_id = status.schema_id;
     stat.schema_name = string_to_wstring(status.schema_name, CP_UTF8);
     stat.schema_id = string_to_wstring(status.schema_id, CP_UTF8);
+    stat.temp_ascii = !!status.is_temp_ascii;
     stat.ascii_mode = !!status.is_ascii_mode;
     stat.composing = !!status.is_composing;
     stat.disabled = !!status.is_disabled;
-    stat.full_shape = !!status.is_full_shape;
     if (schema_id != m_last_schema_id) {
       session_status.__synced = false;
       m_last_schema_id = schema_id;
@@ -1551,6 +1526,7 @@ void RimeWithWeaselHandler::_GetStatus(Status& stat,
         }
       }
     }
+
     rime_api->free_status(&status);
   }
 }
